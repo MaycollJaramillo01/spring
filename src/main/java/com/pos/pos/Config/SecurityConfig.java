@@ -17,6 +17,11 @@ public class SecurityConfig {
 	@Bean
 	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 		http.authorizeHttpRequests(expressionInterceptUrlRegistry -> expressionInterceptUrlRegistry
+				.requestMatchers("/api/public/**").permitAll()
+				.requestMatchers("/swagger-ui/**", "/v3/api-docs/**",
+						"/swagger-resources/**", "/swagger-ui.html",
+						"/webjars/**") // swagger endpoints
+				.permitAll()
 				.requestMatchers("/securityNone").permitAll()
 				.anyRequest().authenticated());
 		return http.build();
