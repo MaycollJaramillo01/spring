@@ -35,6 +35,14 @@ public class InventoryController {
 		return inventoryRepository.findById(id).orElseThrow(() -> new RuntimeException("Inventory not found"));
 	}
 
+	@PutMapping("/{id}")
+	public Inventory updateInventory(@PathVariable Long id, Integer quantity) {
+		Inventory existingInventory = inventoryRepository.findById(id)
+				.orElseThrow(() -> new RuntimeException("Inventory not found"));
+		existingInventory.setQuantity(quantity);
+		return existingInventory;
+	}
+
 	@DeleteMapping("/{id}")
 	public void deleteInventory(@PathVariable Long id) {
 		inventoryRepository.deleteById(id);
