@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/lib/http';
 import type { Product } from '@/types/domain';
 import styles from './ProductSearch.module.css';
 import { useCartStore } from '@/store/cart';
 import { Toast } from '@/ui/Toast';
-
-const queryKey = ['products', 'search'];
+import { formatCurrency } from '@/lib/format';
 
 export function ProductSearch() {
   const [search, setSearch] = useState('');
@@ -25,18 +24,26 @@ export function ProductSearch() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const { data, isFetching } = useQuery({
-    queryKey: [...queryKey, search],
+  const productsQuery = useQuery({
+    queryKey: ['products', 'search'],
     queryFn: async () => {
-      const response = await http.get<{
-        content: Product[];
-      }>('/api/products', {
-        params: { search, size: 10 }
-      });
-      return response.data.content;
+      const response = await http.get<Product[]>('/api/products');
+      return response.data;
     },
-    enabled: search.length > 2
+    staleTime: 60_000
   });
+
+  const filteredProducts = useMemo(() => {
+    if (!search.trim()) return [];
+    const normalized = search.trim().toLowerCase();
+    return (
+      productsQuery.data?.filter((product) => {
+        return [product.name, product.sku, product.barCode]
+          .filter(Boolean)
+          .some((value) => value!.toLowerCase().includes(normalized));
+      }) ?? []
+    ).slice(0, 8);
+  }, [productsQuery.data, search]);
 
   const handleSelect = (product: Product) => {
     addProduct(product);
@@ -58,19 +65,22 @@ export function ProductSearch() {
         onChange={(event) => setSearch(event.target.value)}
         placeholder="Nombre, SKU o código de barras"
       />
-      {isFetching && <div className={styles.dropdown}>Buscando...</div>}
-      {!!data?.length && search.length > 2 && (
+      {productsQuery.isFetching && <div className={styles.dropdown}>Cargando catálogo...</div>}
+      {!!filteredProducts.length && search.length > 1 && (
         <div className={styles.dropdown}>
-          {data.map((product) => (
+          {filteredProducts.map((product) => (
             <button key={product.id} type="button" className={styles.option} onClick={() => handleSelect(product)}>
               <span>
                 <strong>{product.name}</strong>
                 <small>{product.sku}</small>
               </span>
-              <span>C${product.salePrice.toFixed(2)}</span>
+              <span>{formatCurrency(product.costPrice ?? 0)}</span>
             </button>
           ))}
         </div>
+      )}
+      {!productsQuery.isFetching && search.length > 2 && !filteredProducts.length && (
+        <div className={styles.dropdown}>Sin resultados</div>
       )}
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </div>

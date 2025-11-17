@@ -1,17 +1,20 @@
 import { useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { http } from '@/lib/http';
-import type { Customer, Invoice, PaymentMethod } from '@/types/domain';
+import type { Invoice } from '@/types/domain';
 import { useCartStore, calculateCartTotals } from '@/store/cart';
 import styles from './PaymentModal.module.css';
 import { Toast } from '@/ui/Toast';
+import { formatCurrency } from '@/lib/format';
+
+const paymentMethods = ['CASH', 'CARD', 'TRANSFER', 'CHECK'] as const;
 
 const paymentSchema = z.object({
-  customerId: z.number().optional(),
-  paymentMethodId: z.number({ required_error: 'Seleccione un método de pago' }),
+  customerName: z.string().optional(),
+  paymentMethod: z.enum(paymentMethods),
   notes: z.string().optional()
 });
 
@@ -25,34 +28,24 @@ type PaymentModalProps = {
 
 export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
   const queryClient = useQueryClient();
-  const { items, customerId, paymentMethodId, taxRate, discount } = useCartStore((state) => ({
+  const { items, taxRate, discount } = useCartStore((state) => ({
     items: state.items,
-    customerId: state.customerId,
-    paymentMethodId: state.paymentMethodId,
     taxRate: state.taxRate,
     discount: state.discount
   }));
-  const setCustomer = useCartStore((state) => state.setCustomer);
-  const setPaymentMethod = useCartStore((state) => state.setPaymentMethod);
   const clear = useCartStore((state) => state.clear);
-  const totals = calculateCartTotals({ items, customerId, paymentMethodId, taxRate, discount });
+  const totals = calculateCartTotals({ items, taxRate, discount });
   const {
     register,
     handleSubmit,
-    setValue,
+    reset,
     formState: { errors }
   } = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
-      customerId,
-      paymentMethodId
+      paymentMethod: 'CASH'
     }
   });
-
-  useEffect(() => {
-    setValue('customerId', customerId);
-    setValue('paymentMethodId', paymentMethodId);
-  }, [customerId, paymentMethodId, setValue]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -66,54 +59,40 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
     return () => window.removeEventListener('keydown', handler);
   }, [open, onClose]);
 
-  const customersQuery = useQuery({
-    queryKey: ['customers', 'all'],
-    queryFn: async () => {
-      const response = await http.get<{
-        content: Customer[];
-      }>('/api/customers', { params: { size: 100 } });
-      return response.data.content;
-    },
-    enabled: open
-  });
-
-  const paymentMethodsQuery = useQuery({
-    queryKey: ['payment-methods'],
-    queryFn: async () => {
-      const response = await http.get<PaymentMethod[]>('/api/payment-methods');
-      return response.data;
-    },
-    enabled: open
-  });
-
   const mutation = useMutation({
     mutationFn: async (values: PaymentFormValues) => {
+      const taxableBase = totals.subtotal > 0 ? totals.subtotal : 1;
       const payload = {
-        branchId: items[0]?.product.branchId ?? 1,
-        customerId: values.customerId,
-        paymentMethodId: values.paymentMethodId,
-        items: items.map((item) => ({
-          productId: item.product.id,
+        invoiceNumber: `INV-${Date.now()}`,
+        issueDate: new Date().toISOString().slice(0, 10),
+        subtotal: totals.subtotal,
+        taxAmount: totals.tax,
+        totalAmount: totals.total,
+        taxRate: Number(((totals.tax / taxableBase) * 100).toFixed(2)),
+        status: 'PAID',
+        paymentMethod: values.paymentMethod,
+        notes: values.notes,
+        invoiceItems: items.map((item) => ({
+          description: item.product.name,
           quantity: item.quantity,
-          unitPrice: item.product.salePrice,
-          discount: item.discount ?? 0
-        })),
-        discount: totals.discount,
-        notes: values.notes
+          unitPrice: item.product.costPrice ?? 0,
+          totalPrice: (item.product.costPrice ?? 0) * item.quantity,
+          product: { id: item.product.id }
+        }))
       };
       const response = await http.post<Invoice>('/api/invoices', payload);
       return response.data;
     },
     onSuccess: (invoice) => {
       clear();
+      reset();
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       onSuccess(invoice);
     }
   });
 
   const onSubmit = (values: PaymentFormValues) => {
-    setCustomer(values.customerId);
-    setPaymentMethod(values.paymentMethodId);
+    if (!items.length) return;
     mutation.mutate(values);
   };
 
@@ -131,34 +110,18 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
         <form className={styles.form} onSubmit={handleSubmit(onSubmit)}>
           <div className={styles.field}>
             <label>Cliente</label>
-            <select
-              {...register('customerId', {
-                setValueAs: (value) => (value === '' ? undefined : Number(value))
-              })}
-            >
-              <option value="">Consumidor final</option>
-              {customersQuery.data?.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name}
-                </option>
-              ))}
-            </select>
+            <input type="text" placeholder="Opcional" {...register('customerName')} />
           </div>
           <div className={styles.field}>
             <label>Método de pago</label>
-            <select
-              {...register('paymentMethodId', {
-                setValueAs: (value) => (value === '' ? undefined : Number(value))
-              })}
-            >
-              <option value="">Seleccione...</option>
-              {paymentMethodsQuery.data?.map((method) => (
-                <option key={method.id} value={method.id}>
-                  {method.name}
+            <select {...register('paymentMethod')}>
+              {paymentMethods.map((method) => (
+                <option key={method} value={method}>
+                  {method}
                 </option>
               ))}
             </select>
-            {errors.paymentMethodId && <span className={styles.error}>{errors.paymentMethodId.message}</span>}
+            {errors.paymentMethod && <span className={styles.error}>{errors.paymentMethod.message}</span>}
           </div>
           <div className={styles.field}>
             <label>Notas</label>
@@ -167,14 +130,14 @@ export function PaymentModal({ open, onClose, onSuccess }: PaymentModalProps) {
           <section className={styles.summary}>
             <div>
               <span>Total a cobrar</span>
-              <strong>C${totals.total.toFixed(2)}</strong>
+              <strong>{formatCurrency(totals.total)}</strong>
             </div>
           </section>
           <footer className={styles.footer}>
             <button type="button" onClick={onClose} className={styles.secondary}>
               Cancelar
             </button>
-            <button type="submit" className={styles.primary} disabled={mutation.isPending}>
+            <button type="submit" className={styles.primary} disabled={mutation.isPending || !items.length}>
               Confirmar y emitir factura
             </button>
           </footer>

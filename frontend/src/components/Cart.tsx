@@ -1,14 +1,13 @@
 import { useEffect } from 'react';
 import { useCartStore, calculateCartTotals } from '@/store/cart';
 import styles from './Cart.module.css';
+import { formatCurrency } from '@/lib/format';
 
 export function Cart({ onCheckout }: { onCheckout: () => void }) {
   const cartState = useCartStore((state) => ({
     items: state.items,
     discount: state.discount,
-    taxRate: state.taxRate,
-    customerId: state.customerId,
-    paymentMethodId: state.paymentMethodId
+    taxRate: state.taxRate
   }));
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const removeProduct = useCartStore((state) => state.removeProduct);
@@ -31,7 +30,7 @@ export function Cart({ onCheckout }: { onCheckout: () => void }) {
     const handler = (event: KeyboardEvent) => {
       if (event.key === 'Delete') {
         event.preventDefault();
-        const lastItem = items.at(-1);
+        const lastItem = items.length ? items[items.length - 1] : undefined;
         if (lastItem) {
           removeProduct(lastItem.product.id);
         }
@@ -63,7 +62,7 @@ export function Cart({ onCheckout }: { onCheckout: () => void }) {
               <button type="button" onClick={() => removeProduct(item.product.id)}>
                 Quitar
               </button>
-              <span className={styles.price}>C${(item.product.salePrice * item.quantity).toFixed(2)}</span>
+              <span className={styles.price}>{formatCurrency((item.product.costPrice ?? 0) * item.quantity)}</span>
             </div>
           </div>
         ))}
@@ -76,19 +75,19 @@ export function Cart({ onCheckout }: { onCheckout: () => void }) {
         </label>
         <div className={styles.totalRow}>
           <span>Subtotal</span>
-          <strong>C${totals.subtotal.toFixed(2)}</strong>
+          <strong>{formatCurrency(totals.subtotal)}</strong>
         </div>
         <div className={styles.totalRow}>
           <span>Descuento</span>
-          <strong>-C${totals.discount.toFixed(2)}</strong>
+          <strong>-{formatCurrency(totals.discount)}</strong>
         </div>
         <div className={styles.totalRow}>
-          <span>IVA (15%)</span>
-          <strong>C${totals.tax.toFixed(2)}</strong>
+          <span>Impuestos</span>
+          <strong>{formatCurrency(totals.tax)}</strong>
         </div>
         <div className={styles.grandTotal}>
           <span>Total</span>
-          <strong>C${totals.total.toFixed(2)}</strong>
+          <strong>{formatCurrency(totals.total)}</strong>
         </div>
         <button className={styles.checkout} type="button" onClick={onCheckout} disabled={!items.length}>
           Cobrar (F7)

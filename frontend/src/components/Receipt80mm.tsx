@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import type { Invoice } from '@/types/domain';
 import styles from './Receipt80mm.module.css';
+import { formatCurrency, formatDateTime } from '@/lib/format';
 
 type Receipt80mmProps = {
   invoice: Invoice;
@@ -9,10 +10,9 @@ type Receipt80mmProps = {
 export const Receipt80mm = forwardRef<HTMLDivElement, Receipt80mmProps>(({ invoice }, ref) => {
   return (
     <div ref={ref} className={styles.ticket}>
-      <h1>POS Multi-Sucursal</h1>
-      <p>Factura #{invoice.number}</p>
-      <p>Fecha: {new Date(invoice.createdAt).toLocaleString('es-NI')}</p>
-      <p>Cliente: {invoice.customer?.name ?? 'Consumidor final'}</p>
+      <h1>POS PyME</h1>
+      <p>Factura #{invoice.invoiceNumber}</p>
+      <p>Fecha: {formatDateTime(invoice.createdAt ?? invoice.issueDate)}</p>
       <hr />
       <table>
         <thead>
@@ -23,11 +23,11 @@ export const Receipt80mm = forwardRef<HTMLDivElement, Receipt80mmProps>(({ invoi
           </tr>
         </thead>
         <tbody>
-          {invoice.items.map((item) => (
-            <tr key={item.product.id}>
-              <td>{item.product.name}</td>
+          {invoice.invoiceItems.map((item) => (
+            <tr key={item.id}>
+              <td>{item.description}</td>
               <td>{item.quantity}</td>
-              <td>C${item.total.toFixed(2)}</td>
+              <td>{formatCurrency(item.totalPrice)}</td>
             </tr>
           ))}
         </tbody>
@@ -36,21 +36,19 @@ export const Receipt80mm = forwardRef<HTMLDivElement, Receipt80mmProps>(({ invoi
       <div className={styles.totals}>
         <div>
           <span>Subtotal</span>
-          <strong>C${invoice.subtotal.toFixed(2)}</strong>
+          <strong>{formatCurrency(invoice.subtotal)}</strong>
         </div>
         <div>
-          <span>IVA</span>
-          <strong>C${invoice.tax.toFixed(2)}</strong>
+          <span>Impuestos</span>
+          <strong>{formatCurrency(invoice.taxAmount)}</strong>
         </div>
-        {invoice.discount ? (
-          <div>
-            <span>Descuento</span>
-            <strong>-C${invoice.discount.toFixed(2)}</strong>
-          </div>
-        ) : null}
         <div>
           <span>Total</span>
-          <strong>C${invoice.total.toFixed(2)}</strong>
+          <strong>{formatCurrency(invoice.totalAmount)}</strong>
+        </div>
+        <div>
+          <span>Pago</span>
+          <strong>{invoice.paymentMethod}</strong>
         </div>
       </div>
       <p className={styles.footer}>Gracias por su compra</p>
