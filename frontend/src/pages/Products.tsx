@@ -1,30 +1,32 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { http } from '@/lib/http';
 import type { Product } from '@/types/domain';
 import { DataTable } from '@/components/DataTable';
 import styles from './Products.module.css';
-
-interface ProductPage {
-  content: Product[];
-  totalPages: number;
-  page: number;
-  totalElements: number;
-}
+import { formatCurrency } from '@/lib/format';
 
 export default function Products() {
-  const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
 
-  const { data, isFetching } = useQuery({
-    queryKey: ['products', page, search],
+  const productsQuery = useQuery({
+    queryKey: ['products'],
     queryFn: async () => {
-      const response = await http.get<ProductPage>('/api/products', {
-        params: { page, search, size: 10 }
-      });
+      const response = await http.get<Product[]>('/api/products');
       return response.data;
     }
   });
+
+  const filteredProducts = useMemo(() => {
+    if (!productsQuery.data) return [];
+    if (!search.trim()) return productsQuery.data;
+    const normalized = search.trim().toLowerCase();
+    return productsQuery.data.filter((product) =>
+      [product.name, product.brand, product.sku, product.barCode]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(normalized))
+    );
+  }, [productsQuery.data, search]);
 
   return (
     <div className={styles.wrapper}>
@@ -32,49 +34,42 @@ export default function Products() {
         <h2>Productos</h2>
         <input
           type="search"
-          placeholder="Buscar"
+          placeholder="Buscar por nombre, SKU o código"
           value={search}
-          onChange={(event) => {
-            setPage(0);
-            setSearch(event.target.value);
-          }}
+          onChange={(event) => setSearch(event.target.value)}
         />
       </header>
       <DataTable
-        data={data?.content ?? []}
-        isLoading={isFetching}
+        data={filteredProducts}
+        isLoading={productsQuery.isFetching}
         emptyState="No se encontraron productos"
         columns={[
           { key: 'sku', header: 'SKU' },
           { key: 'name', header: 'Nombre' },
-          { key: 'category', header: 'Categoría' },
+          { key: 'brand', header: 'Marca' },
+          { key: 'barCode', header: 'Código de barras' },
           {
-            key: 'salePrice',
-            header: 'Precio',
-            render: (product) => `C$${product.salePrice.toFixed(2)}`
+            key: 'costPrice',
+            header: 'Costo',
+            render: (product) => formatCurrency(product.costPrice ?? 0)
           },
           {
-            key: 'stock',
-            header: 'Stock',
-            render: (product) => (product.stock > 0 ? product.stock : 'Sin stock')
+            key: 'taxPercentage',
+            header: 'Impuesto',
+            render: (product) => `${product.taxPercentage ?? 0}%`
+          },
+          {
+            key: 'isActive',
+            header: 'Estado',
+            render: (product) => (product.isActive ? 'Activo' : 'Inactivo')
+          },
+          {
+            key: 'productCategories',
+            header: 'Categorías',
+            render: (product) => product.productCategories?.map((category) => category.name).join(', ') || 'Sin categorías'
           }
         ]}
       />
-      <footer className={styles.pagination}>
-        <button type="button" onClick={() => setPage((prev) => Math.max(prev - 1, 0))} disabled={page === 0}>
-          Anterior
-        </button>
-        <span>
-          Página {page + 1} de {data?.totalPages ?? 1}
-        </span>
-        <button
-          type="button"
-          onClick={() => setPage((prev) => (data && prev + 1 < data.totalPages ? prev + 1 : prev))}
-          disabled={data ? page + 1 >= data.totalPages : true}
-        >
-          Siguiente
-        </button>
-      </footer>
     </div>
   );
 }

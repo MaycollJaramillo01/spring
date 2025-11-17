@@ -3,8 +3,8 @@ import type { CartItem, Product } from '@/types/domain';
 
 export type CartState = {
   items: CartItem[];
-  customerId?: number;
-  paymentMethodId?: number;
+  customerName?: string;
+  paymentMethod?: string;
   taxRate: number;
   discount: number;
 };
@@ -14,8 +14,6 @@ export type CartActions = {
   updateQuantity: (productId: number, quantity: number) => void;
   removeProduct: (productId: number) => void;
   clear: () => void;
-  setCustomer: (customerId?: number) => void;
-  setPaymentMethod: (paymentMethodId?: number) => void;
   setDiscount: (discount: number) => void;
   setTaxRate: (taxRate: number) => void;
 };
@@ -58,20 +56,25 @@ export const useCartStore = create<CartState & CartActions>((set) => ({
       items: state.items.filter((item) => item.product.id !== productId)
     })),
   clear: () => set(() => ({ ...initialState })),
-  setCustomer: (customerId) => set((state) => ({ ...state, customerId })),
-  setPaymentMethod: (paymentMethodId) => set((state) => ({ ...state, paymentMethodId })),
   setDiscount: (discount) => set((state) => ({ ...state, discount })),
   setTaxRate: (taxRate) => set((state) => ({ ...state, taxRate }))
 }));
 
 export function calculateCartTotals(state: CartState) {
   const subtotal = state.items.reduce(
-    (acc, item) => acc + item.product.salePrice * item.quantity,
+    (acc, item) => acc + (item.product.costPrice ?? 0) * item.quantity,
     0
   );
-  const discount = state.discount;
+  const discount = Math.min(state.discount, subtotal);
   const taxable = Math.max(subtotal - discount, 0);
-  const tax = taxable * state.taxRate;
+  const tax = state.items.reduce((acc, item) => {
+    const rate =
+      typeof item.product.taxPercentage === 'number'
+        ? item.product.taxPercentage / 100
+        : state.taxRate;
+    const lineSubtotal = (item.product.costPrice ?? 0) * item.quantity;
+    return acc + lineSubtotal * rate;
+  }, 0);
   const total = taxable + tax;
 
   return { subtotal, discount, tax, total };

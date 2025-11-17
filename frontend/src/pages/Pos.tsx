@@ -38,7 +38,7 @@ export default function Pos() {
           <div className={styles.invoiceResult}>
             <h3>Última factura</h3>
             <p>ID: {lastInvoice.id}</p>
-            <p>Número: {lastInvoice.number}</p>
+            <p>Número: {lastInvoice.invoiceNumber}</p>
             <p>Estado: {lastInvoice.status}</p>
             <button type="button" onClick={handlePrint}>
               Imprimir ticket
