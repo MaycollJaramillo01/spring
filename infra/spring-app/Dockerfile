@@ -11,7 +11,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Runtime stage with JDK 21
-FROM openjdk:21-slim-bullseye
+FROM eclipse-temurin:21-jdk-slim
 
 # Install wait-for-it for database readiness
 RUN apt-get update && apt-get install -y wait-for-it curl && \
