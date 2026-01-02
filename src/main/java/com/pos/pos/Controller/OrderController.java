@@ -2,7 +2,6 @@ package com.pos.pos.Controller;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -10,33 +9,33 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.pos.pos.Repository.OrderRepository;
 import com.pos.pos.Model.Order;
+import com.pos.pos.Service.OrderServiceInterface;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("api/orders")
+@RequiredArgsConstructor
 public class OrderController {
-	@Autowired
-	private OrderRepository orderRepository;
+	private final OrderServiceInterface orderService;
 
 	@GetMapping
 	public List<Order> list() {
-		return orderRepository.findAll();
+		return orderService.findAll();
 	}
 
-	// create an order (final order)
 	@PostMapping
-	public Order createOrder(Order Order) {
-		return orderRepository.save(Order);
+	public Order createOrder(Order order) {
+		return orderService.create(order);
 	}
 
 	@GetMapping("/{id}")
 	public Order getOrder(@PathVariable Long id) {
-		return orderRepository.findById(id).orElseThrow(() -> new RuntimeException("Order not found"));
+		return orderService.findById(id);
 	}
 
 	@DeleteMapping("/{id}")
 	public void deleteOrder(@PathVariable Long id) {
-		orderRepository.deleteById(id);
+		orderService.delete(id);
 	}
 }

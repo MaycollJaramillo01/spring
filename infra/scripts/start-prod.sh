@@ -15,7 +15,7 @@ echo "Project structure with infra folder"
 echo "=========================================="
 
 # Stop existing containers
-docker-compose down
+docker compose down
 
 # Build and start
 docker compose -f ./../docker-compose.prod.yml up --build -d
@@ -29,4 +29,4 @@ echo "=========================================="
 
 # Show logs
 echo "Showing logs... (Ctrl+C to exit)"
-docker-compose logs -f
+docker compose logs -f

@@ -2,7 +2,6 @@ package com.pos.pos.Controller;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -10,32 +9,33 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.pos.pos.Repository.InvoiceItemRepository;
 import com.pos.pos.Model.InvoiceItem;
+import com.pos.pos.Service.InvoiceItemServiceInterface;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("api/invoice-items")
+@RequiredArgsConstructor
 public class InvoiceItemController {
-	@Autowired
-	private InvoiceItemRepository invoiceItemRepository;
+	private final InvoiceItemServiceInterface invoiceItemService;
 
 	@GetMapping
 	public List<InvoiceItem> list() {
-		return invoiceItemRepository.findAll();
+		return invoiceItemService.findAll();
 	}
 
 	@PostMapping
 	public InvoiceItem createInvoiceItem(InvoiceItem invoiceItem) {
-		return invoiceItemRepository.save(invoiceItem);
+		return invoiceItemService.create(invoiceItem);
 	}
 
 	@GetMapping("/{id}")
 	public InvoiceItem getInvoiceItem(@PathVariable Long id) {
-		return invoiceItemRepository.findById(id).orElseThrow(() -> new RuntimeException("InvoiceItem not found"));
+		return invoiceItemService.findById(id);
 	}
 
 	@DeleteMapping("/{id}")
 	public void deleteInvoiceItem(@PathVariable Long id) {
-		invoiceItemRepository.deleteById(id);
+		invoiceItemService.delete(id);
 	}
 }

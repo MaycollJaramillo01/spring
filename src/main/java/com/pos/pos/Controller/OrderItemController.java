@@ -2,7 +2,6 @@ package com.pos.pos.Controller;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -10,37 +9,33 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.pos.pos.Repository.OrderItemRepository;
-import com.pos.pos.Service.OrderItemService;
 import com.pos.pos.Model.OrderItem;
+import com.pos.pos.Service.OrderItemServiceInterface;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("api/order-items")
+@RequiredArgsConstructor
 public class OrderItemController {
-	@Autowired
-	private OrderItemRepository orderItemRepository;
-	@Autowired
-	private OrderItemService orderItemService;
+	private final OrderItemServiceInterface orderItemService;
 
 	@GetMapping
 	public List<OrderItem> list() {
-		return orderItemRepository.findAll();
+		return orderItemService.findAll();
 	}
 
-	// every item in a order
-	// las ordenes son ventas
 	@PostMapping
-	public OrderItem createOrderItem(OrderItem OrderItem) {
-		return orderItemService.createOrderItem(OrderItem);
+	public OrderItem createOrderItem(OrderItem orderItem) {
+		return orderItemService.create(orderItem);
 	}
 
 	@GetMapping("/{id}")
 	public OrderItem getOrderItem(@PathVariable Long id) {
-		return orderItemRepository.findById(id).orElseThrow(() -> new RuntimeException("OrderItem not found"));
+		return orderItemService.findById(id);
 	}
 
 	@DeleteMapping("/{id}")
 	public void deleteOrderItem(@PathVariable Long id) {
-		orderItemRepository.deleteById(id);
+		orderItemService.delete(id);
 	}
 }
